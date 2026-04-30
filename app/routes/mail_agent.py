@@ -6,11 +6,13 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, PlainTextResponse
 import asyncio
 import json
 import datetime
 import uuid
+import csv
+import io
 from collections import defaultdict
 
 from app.deps.container import (
@@ -115,6 +117,36 @@ def get_lead(
     if not row:
         raise HTTPException(404, "Lead not found")
     return LeadRecord(**row)
+
+
+@router.get("/leads/export/csv")
+def export_leads_csv(
+    ingestion: LeadIngestionService = Depends(get_lead_ingestion),
+):
+    """Export all leads as a CSV file for download."""
+    raw = ingestion.fetch_pending_leads(limit=5000, offset=0)
+
+    if not raw:
+        output = io.StringIO()
+        output.write("id,name,company,email,context\n")
+        return PlainTextResponse(output.getvalue(), media_type="text/csv",
+                                 headers={"Content-Disposition": "attachment; filename=leads.csv"})
+
+    fields = ["id", "name", "company", "email", "context", "created_at"]
+    # Also grab any extra fields present in the data
+    extra_fields = set()
+    for row in raw:
+        extra_fields.update(k for k in row if k not in fields and not k.startswith("_"))
+    fields.extend(sorted(extra_fields))
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=fields, extrasaction="ignore")
+    writer.writeheader()
+    for row in raw:
+        writer.writerow(row)
+
+    return PlainTextResponse(output.getvalue(), media_type="text/csv",
+                             headers={"Content-Disposition": "attachment; filename=leads.csv"})
 
 
 # ── Email generation ─────────────────────────────────────────────────────────

@@ -35,6 +35,7 @@ export const leads = {
   get: (id: string) => fetchJson<any>(`${API_BASE}/mail-agent/leads/${id}`),
   ingest: () =>
     fetchJson<{ status: string; batch_id: string; leads_discovered: number }>(`${API_BASE}/mail-agent/leads/ingest`, { method: 'POST' }),
+  exportCsvUrl: () => `${API_BASE}/mail-agent/leads/export/csv`,
 };
 
 // ── Tracker / Review Queue ────────────────────────────────────────────

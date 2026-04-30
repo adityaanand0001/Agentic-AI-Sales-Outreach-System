@@ -13,6 +13,7 @@ import TemplatesView from '@/components/views/TemplatesView';
 import ComplianceView from '@/components/views/ComplianceView';
 import WarmupView from '@/components/views/WarmupView';
 import ExecutionView from '@/components/views/ExecutionView';
+import LeadsView from '@/components/views/LeadsView';
 
 type Tab = keyof typeof tabTitles;
 
@@ -20,7 +21,7 @@ const tabTitles = {
   dashboard: 'Dashboard Summary', review: 'Human Review Queue', sent: 'Sent Email History',
   batches: 'Batch History', logs: 'System Execution Logs', performance: 'Performance Analytics',
   settings: 'Agent Configuration', templates: 'Email Templates', compliance: 'Compliance Tracker',
-  warmup: 'Warmup Dashboard', execution: 'Agent Execution Engine',
+  warmup: 'Warmup Dashboard', execution: 'Agent Execution Engine', leads: 'Lead Management',
 } as const;
 
 const sidebarItems: { id: Tab; label: string }[] = [
@@ -29,6 +30,7 @@ const sidebarItems: { id: Tab; label: string }[] = [
   { id: 'logs', label: 'System Logs' }, { id: 'performance', label: 'Performance' },
   { id: 'settings', label: 'Settings' }, { id: 'templates', label: 'Templates' },
   { id: 'compliance', label: 'Compliance' }, { id: 'warmup', label: 'Warmup' },
+  { id: 'execution', label: 'Agent Execution' }, { id: 'leads', label: 'Lead Management' },
 ];
 
 function NavIcon({ id }: { id: string }) {
@@ -123,6 +125,7 @@ export default function Dashboard() {
         {activeTab === 'compliance' && <CompV />}
         {activeTab === 'warmup' && <WarmV />}
         {activeTab === 'execution' && <ExecV toast={toast} onClose={() => setActiveTab('dashboard')} />}
+        {activeTab === 'leads' && <LeadV toast={toast} />}
       </div>
 
       {toasts.map(t => <div key={t.id} className="toast show"><span>{t.msg}</span></div>)}
@@ -220,6 +223,38 @@ function WarmV() {
   const [d, setD] = useState<any>(null);
   useEffect(() => { api.warmup.get().then(setD).catch(() => {}); }, []);
   return <WarmupView data={d} />;
+}
+
+function LeadV({ toast }: { toast: (s: string) => void }) {
+  const [items, setItems] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [ingesting, setIngesting] = useState(false);
+  const perPage = 10;
+
+  const load = useCallback(() => {
+    api.leads.list(perPage, (page - 1) * perPage).then(setItems).catch(() => {});
+  }, [page]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return <LeadsView
+    items={items}
+    page={page}
+    totalPages={Math.ceil(Math.max(items.length, 1) / perPage)}
+    search={search}
+    onSearchChange={setSearch}
+    onPrevPage={() => setPage(p => Math.max(1, p - 1))}
+    onNextPage={() => setPage(p => p + 1)}
+    onIngest={async () => {
+      setIngesting(true);
+      try { const r = await api.leads.ingest(); toast(`Ingested ${r.leads_discovered} leads`); load(); }
+      catch (e: any) { toast(e.message); }
+      finally { setIngesting(false); }
+    }}
+    ingesting={ingesting}
+    onRefresh={load}
+  />;
 }
 
 function ExecV({ toast, onClose }: { toast: (s: string) => void; onClose: () => void }) {
