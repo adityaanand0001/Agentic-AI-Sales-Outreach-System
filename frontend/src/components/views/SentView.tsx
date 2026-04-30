@@ -5,14 +5,19 @@ import { useState, useMemo } from 'react';
 interface Props {
   items: any[];
   onCheckReplies: () => void;
+  onReply?: (to: string, subject: string, body: string) => Promise<void>;
 }
 
-export default function SentView({ items, onCheckReplies }: Props) {
+export default function SentView({ items, onCheckReplies, onReply }: Props) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<any | null>(null);
   const [threadView, setThreadView] = useState(false);
   const [page, setPage] = useState(1);
   const perPage = 15;
+  const [showReply, setShowReply] = useState(false);
+  const [replySubject, setReplySubject] = useState('');
+  const [replyBody, setReplyBody] = useState('');
+  const [sending, setSending] = useState(false);
 
   const filtered = useMemo(() => {
     if (!search) return items;
@@ -140,12 +145,24 @@ export default function SentView({ items, onCheckReplies }: Props) {
           <div style={{ flex: 1, overflow: 'auto', background: 'white', display: 'flex', flexDirection: 'column' }}>
             <div className="detail-toolbar" style={{ justifyContent: 'space-between' }}>
               <span className="mono-label">Email Detail</span>
-              <button className="toolbar-btn" onClick={() => setSelected(null)} style={{ fontSize: 10 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-                Close
-              </button>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="toolbar-btn" onClick={() => {
+                  setReplySubject(`Re: ${selected.subject || selected.email_subject || ''}`);
+                  setReplyBody('');
+                  setShowReply(v => !v);
+                }} style={{ fontSize: 10 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  {showReply ? 'Cancel' : 'Reply'}
+                </button>
+                <button className="toolbar-btn" onClick={() => setSelected(null)} style={{ fontSize: 10 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                  Close
+                </button>
+              </div>
             </div>
             <div style={{ padding: 24, maxWidth: 680 }}>
               <div style={{ marginBottom: 20 }}>
@@ -185,6 +202,50 @@ export default function SentView({ items, onCheckReplies }: Props) {
               {selected.thread_id && (
                 <div style={{ marginTop: 16, fontSize: 11, color: 'var(--muted-slate)', fontFamily: 'JetBrains Mono, monospace' }}>
                   Thread: {selected.thread_id}
+                </div>
+              )}
+              {showReply && onReply && (
+                <div style={{ borderTop: '2px solid var(--interaction-blue)', marginTop: 20, paddingTop: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--interaction-blue)', marginBottom: 12 }}>
+                    Compose Reply
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 10, color: 'var(--muted-slate)', marginBottom: 4 }}>TO</div>
+                    <input className="form-input" value={selected.recipient || selected.lead_email || ''} readOnly
+                      style={{ background: '#f5f5f5', fontSize: 13 }} />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 12 }}>
+                    <label className="form-label">Subject</label>
+                    <input className="form-input" value={replySubject}
+                      onChange={e => setReplySubject(e.target.value)} />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 12 }}>
+                    <label className="form-label">Message</label>
+                    <textarea className="form-input form-textarea" value={replyBody}
+                      onChange={e => setReplyBody(e.target.value)}
+                      placeholder="Type your reply..."
+                      style={{ minHeight: 120 }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-solid" disabled={sending || !replyBody.trim()}
+                      onClick={async () => {
+                        if (!onReply) return;
+                        setSending(true);
+                        try {
+                          await onReply(
+                            selected.recipient || selected.lead_email || '',
+                            replySubject,
+                            replyBody
+                          );
+                          setShowReply(false);
+                        } finally {
+                          setSending(false);
+                        }
+                      }}>
+                      {sending ? 'Sending...' : 'Send Reply'}
+                    </button>
+                    <button className="btn btn-ghost" onClick={() => setShowReply(false)}>Cancel</button>
+                  </div>
                 </div>
               )}
             </div>

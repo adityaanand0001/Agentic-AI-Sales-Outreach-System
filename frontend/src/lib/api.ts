@@ -85,6 +85,11 @@ export const actions = {
     }),
   checkReplies: () =>
     fetchJson<{ detected: number; replies: any[] }>(`${API_BASE}/mail-agent/check-replies`, { method: 'POST' }),
+  sendReply: (recipient: string, subject: string, body_text: string, thread_id?: string) =>
+    fetchJson<{ status: string; gmail_message_id: string; tracker_id: string }>(`${API_BASE}/mail-agent/send-reply`, {
+      method: 'POST',
+      body: JSON.stringify({ recipient, subject, body_text, thread_id: thread_id || '' }),
+    }),
 };
 
 // ── Templates ─────────────────────────────────────────────────────────

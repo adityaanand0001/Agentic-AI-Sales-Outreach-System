@@ -188,19 +188,25 @@ class GmailOAuthService:
         body_text: str,
         body_html: str = "",
         user_id: str = "default_user",
+        thread_id: str | None = None,
     ) -> tuple[str, str | None]:
         """Send email via Gmail API.
 
         Returns (gmail_message_id, thread_id).
+        If thread_id is provided, the reply is appended to the existing thread.
         """
         service = self.get_gmail_service(user_id)
         msg = self._build_mime(recipient, subject, body_text, body_html)
         raw = self._encode(msg)
 
+        body = {"raw": raw}
+        if thread_id:
+            body["threadId"] = thread_id
+
         resp = (
             service.users()
             .messages()
-            .send(userId="me", body={"raw": raw})
+            .send(userId="me", body=body)
             .execute()
         )
         return resp.get("id", ""), resp.get("threadId")
@@ -246,7 +252,7 @@ class GmailOAuthService:
                 raise
         raise RuntimeError(f"Gmail operation failed after retries: {last_error}")
 
-    def safe_send_email(self, recipient: str, subject: str, body_text: str, body_html: str = "", user_id: str = "default_user") -> tuple[str, str | None]:
+    def safe_send_email(self, recipient: str, subject: str, body_text: str, body_html: str = "", user_id: str = "default_user", thread_id: str | None = None) -> tuple[str, str | None]:
         return self._with_retries(
             self.send_email,
             recipient=recipient,
@@ -254,6 +260,7 @@ class GmailOAuthService:
             body_text=body_text,
             body_html=body_html,
             user_id=user_id,
+            thread_id=thread_id,
         )
 
     def safe_create_draft(self, recipient: str, subject: str, body_text: str, body_html: str = "", user_id: str = "default_user") -> str:

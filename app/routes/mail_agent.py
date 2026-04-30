@@ -37,6 +37,8 @@ from app.models.schemas import (
     RegenerateEmailRequest,
     RejectEmailRequest,
     RejectEmailResponse,
+    SendReplyRequest,
+    SendReplyResponse,
     TemplateCreate,
     TemplateResponse,
     TemplateUpdate,
@@ -764,3 +766,33 @@ def check_replies(
         new_replies.append(reply_record)
 
     return {"detected": len(new_replies), "replies": new_replies}
+
+
+@router.post("/send-reply")
+def send_reply(
+    req: SendReplyRequest,
+    gmail_service: GmailOAuthService = Depends(get_gmail_service),
+    tracker: MailTrackerService = Depends(get_mail_tracker),
+):
+    """Send a quick reply email to a recipient."""
+    try:
+        msg_id, thread_id = gmail_service.safe_send_email(
+            recipient=req.recipient,
+            subject=req.subject,
+            body_text=req.body_text,
+            thread_id=req.thread_id or None,
+        )
+        record = tracker.create_record(
+            company_name=req.recipient.split("@")[0] if "@" in req.recipient else req.recipient,
+            email=req.recipient,
+            subject=req.subject,
+            body_preview=req.body_text,
+            status="SENT",
+            thread_id=thread_id,
+            gmail_message_id=msg_id,
+            is_reply=True,
+        )
+        return SendReplyResponse(status="SENT", gmail_message_id=msg_id, tracker_id=record["id"])
+    except Exception as e:
+        logger.error("Failed to send reply: %s", e)
+        raise HTTPException(500, f"Failed to send reply: {e}")

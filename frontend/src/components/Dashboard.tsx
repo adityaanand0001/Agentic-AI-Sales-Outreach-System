@@ -145,7 +145,7 @@ function DashView({ toast, setBadge }: { toast: (s: string) => void; setBadge: (
     api.langgraph.status().then(a => setRunning(a.workflow_status === 'RUNNING')).catch(() => {});
     api.leads.list(10, (page - 1) * 10).then(setLeads).catch(() => {}); }, [page, setBadge]);
 
-  return <DashboardView stats={stats} agentRunning={running} leads={leads} leadsPage={page} onPrevPage={() => setPage(p => Math.max(1, p - 1))} onNextPage={() => setPage(p => p + 1)} onInvoke={() => {}} />;
+  return <DashboardView stats={stats} agentRunning={running} leads={leads} leadsPage={page} onPrevPage={() => setPage(p => Math.max(1, p - 1))} onNextPage={() => setPage(p => p + 1)} onInvoke={async () => { try { await api.langgraph.runBatch(); toast('Agent batch triggered'); setRunning(true); setTimeout(() => setRunning(false), 5000); } catch (e: any) { toast(e.message); } }} />;
 }
 
 function RevView({ toast, setBadge }: { toast: (s: string) => void; setBadge: (n: number) => void }) {
@@ -168,8 +168,9 @@ function RevView({ toast, setBadge }: { toast: (s: string) => void; setBadge: (n
 
 function SentV({ toast }: { toast: (s: string) => void }) {
   const [items, setItems] = useState<any[]>([]);
-  useEffect(() => { api.tracker.list('SENT').then(setItems).catch(() => {}); }, []);
-  return <SentView items={items} onCheckReplies={async () => { try { const r = await api.actions.checkReplies(); toast(`Found ${r.detected} replies`); api.tracker.list('SENT').then(setItems); } catch (e: any) { toast(e.message); } }} />;
+  const loadSent = useCallback(() => { api.tracker.list('SENT').then(setItems).catch(() => {}); }, []);
+  useEffect(() => { loadSent(); }, [loadSent]);
+  return <SentView items={items} onCheckReplies={async () => { try { const r = await api.actions.checkReplies(); toast(`Found ${r.detected} replies`); loadSent(); } catch (e: any) { toast(e.message); } }} onReply={async (to, subject, body) => { try { await api.actions.sendReply(to, subject, body); toast('Reply sent'); loadSent(); } catch (e: any) { toast(e.message); } }} />;
 }
 
 function BatchV() {

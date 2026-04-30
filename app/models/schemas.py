@@ -88,6 +88,19 @@ class BulkApproveRequest(BaseModel):
     tracker_ids: list[str]
 
 
+class SendReplyRequest(BaseModel):
+    recipient: str
+    subject: str
+    body_text: str
+    thread_id: str = ""
+
+
+class SendReplyResponse(BaseModel):
+    status: str
+    gmail_message_id: str = ""
+    tracker_id: str = ""
+
+
 # ── List / Dashboard ──────────────────────────────────────────────────────────
 
 class TrackerRecord(BaseModel):
