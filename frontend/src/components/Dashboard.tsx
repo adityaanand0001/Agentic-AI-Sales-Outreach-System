@@ -14,6 +14,7 @@ import ComplianceView from '@/components/views/ComplianceView';
 import WarmupView from '@/components/views/WarmupView';
 import ExecutionView from '@/components/views/ExecutionView';
 import LeadsView from '@/components/views/LeadsView';
+import CampaignsView from '@/components/views/CampaignsView';
 
 type Tab = keyof typeof tabTitles;
 
@@ -22,6 +23,7 @@ const tabTitles = {
   batches: 'Batch History', logs: 'System Execution Logs', performance: 'Performance Analytics',
   settings: 'Agent Configuration', templates: 'Email Templates', compliance: 'Compliance Tracker',
   warmup: 'Warmup Dashboard', execution: 'Agent Execution Engine', leads: 'Lead Management',
+  campaigns: 'Campaigns',
 } as const;
 
 const sidebarItems: { id: Tab; label: string }[] = [
@@ -31,6 +33,7 @@ const sidebarItems: { id: Tab; label: string }[] = [
   { id: 'settings', label: 'Settings' }, { id: 'templates', label: 'Templates' },
   { id: 'compliance', label: 'Compliance' }, { id: 'warmup', label: 'Warmup' },
   { id: 'execution', label: 'Agent Execution' }, { id: 'leads', label: 'Lead Management' },
+  { id: 'campaigns', label: 'Campaigns' },
 ];
 
 function NavIcon({ id }: { id: string }) {
@@ -46,6 +49,7 @@ function NavIcon({ id }: { id: string }) {
     templates: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></>,
     compliance: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
     warmup: <><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></>,
+    campaigns: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
   };
   return <svg {...s}>{map[id] || map.dashboard}</svg>;
 }
@@ -126,6 +130,7 @@ export default function Dashboard() {
         {activeTab === 'warmup' && <WarmV />}
         {activeTab === 'execution' && <ExecV toast={toast} onClose={() => setActiveTab('dashboard')} />}
         {activeTab === 'leads' && <LeadV toast={toast} />}
+        {activeTab === 'campaigns' && <CampnV toast={toast} />}
       </div>
 
       {toasts.map(t => <div key={t.id} className="toast show"><span>{t.msg}</span></div>)}
@@ -231,10 +236,17 @@ function LeadV({ toast }: { toast: (s: string) => void }) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [ingesting, setIngesting] = useState(false);
+  const [scoring, setScoring] = useState(false);
+  const [scores, setScores] = useState<Record<string, number>>({});
   const perPage = 10;
 
   const load = useCallback(() => {
     api.leads.list(perPage, (page - 1) * perPage).then(setItems).catch(() => {});
+    api.scores.list().then(r => {
+      const m: Record<string, number> = {};
+      r.scores.forEach((s: any) => { m[s.lead_id] = s.score; });
+      setScores(m);
+    }).catch(() => {});
   }, [page]);
 
   useEffect(() => { load(); }, [load]);
@@ -255,7 +267,25 @@ function LeadV({ toast }: { toast: (s: string) => void }) {
     }}
     ingesting={ingesting}
     onRefresh={load}
+    scoring={scoring}
+    scores={scores}
+    onScoreLeads={async () => {
+      setScoring(true);
+      try {
+        const r = await api.scores.score([]);
+        toast(r.message);
+        const m: Record<string, number> = {};
+        r.scores.forEach((s: any) => { m[s.lead_id] = s.score; });
+        setScores(m);
+      } catch (e: any) { toast(e.message); }
+      finally { setScoring(false); }
+    }}
+    toast={toast}
   />;
+}
+
+function CampnV({ toast }: { toast: (s: string) => void }) {
+  return <CampaignsView toast={toast} />;
 }
 
 function ExecV({ toast, onClose }: { toast: (s: string) => void; onClose: () => void }) {

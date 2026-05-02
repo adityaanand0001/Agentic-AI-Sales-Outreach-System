@@ -28,12 +28,19 @@ from app.models.schemas import (
     ApproveEmailResponse,
     BulkApproveRequest,
     BulkRejectRequest,
+    CampaignCreate,
+    CampaignUpdate,
+    CampaignAssignRequest,
     ComplianceEvent,
     ComplianceSummary,
     DashboardSummary,
     GenerateEmailRequest,
     GenerateEmailResponse,
+    LeadNoteCreate,
     LeadRecord,
+    LeadScoreRequest,
+    LeadScoreResponse,
+    LeadScore,
     RegenerateEmailRequest,
     RejectEmailRequest,
     RejectEmailResponse,
@@ -796,3 +803,319 @@ def send_reply(
     except Exception as e:
         logger.error("Failed to send reply: %s", e)
         raise HTTPException(500, f"Failed to send reply: {e}")
+
+
+# ── Campaign Management ──────────────────────────────────────────────────────
+
+
+@router.get("/campaigns", response_model=list)
+def list_campaigns(
+    status: str | None = None,
+    tracker: MailTrackerService = Depends(get_mail_tracker),
+):
+    """List all campaigns, optionally filtered by status."""
+    q = tracker.db.table("mail_agent_campaigns").select("*").order("created_at", desc=True)
+    if status:
+        q = q.eq("status", status)
+    resp = q.execute()
+    return resp.data or []
+
+
+@router.get("/campaigns/{campaign_id}", response_model=dict)
+def get_campaign(
+    campaign_id: str,
+    tracker: MailTrackerService = Depends(get_mail_tracker),
+):
+    """Get a single campaign with its stats."""
+    resp = tracker.db.table("mail_agent_campaigns").select("*").eq("id", campaign_id).limit(1).execute()
+    rows = resp.data or []
+    if not rows:
+        raise HTTPException(404, "Campaign not found")
+    campaign = rows[0]
+
+    # Get linked emails count by status
+    tracker_resp = tracker.db.table(tracker.table).select("status").eq("campaign_id", campaign_id).execute()
+    emails = tracker_resp.data or []
+    campaign["sent_count"] = sum(1 for e in emails if e.get("status") == "SENT")
+    campaign["reply_count"] = sum(1 for e in emails if e.get("status") == "REPLY")
+    campaign["bounce_count"] = sum(1 for e in emails if e.get("status") == "FAILED")
+    campaign["total_leads"] = len(emails)
+    return campaign
+
+
+@router.post("/campaigns", response_model=dict)
+def create_campaign(
+    req: CampaignCreate,
+    tracker: MailTrackerService = Depends(get_mail_tracker),
+):
+    """Create a new campaign."""
+    import uuid
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    record = {
+        "id": str(uuid.uuid4()),
+        "name": req.name,
+        "description": req.description,
+        "target_audience": req.target_audience,
+        "status": "ACTIVE",
+        "start_date": req.start_date or now,
+        "end_date": req.end_date,
+        "created_at": now,
+        "updated_at": now,
+    }
+    tracker.db.table("mail_agent_campaigns").insert(record).execute()
+    return record
+
+
+@router.patch("/campaigns/{campaign_id}", response_model=dict)
+def update_campaign(
+    campaign_id: str,
+    req: CampaignUpdate,
+    tracker: MailTrackerService = Depends(get_mail_tracker),
+):
+    """Update a campaign."""
+    existing = tracker.db.table("mail_agent_campaigns").select("*").eq("id", campaign_id).limit(1).execute()
+    if not existing.data:
+        raise HTTPException(404, "Campaign not found")
+
+    payload = {"updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat()}
+    if req.name is not None:
+        payload["name"] = req.name
+    if req.description is not None:
+        payload["description"] = req.description
+    if req.target_audience is not None:
+        payload["target_audience"] = req.target_audience
+    if req.status is not None:
+        payload["status"] = req.status
+    if req.start_date is not None:
+        payload["start_date"] = req.start_date
+    if req.end_date is not None:
+        payload["end_date"] = req.end_date
+
+    tracker.db.table("mail_agent_campaigns").update(payload).eq("id", campaign_id).execute()
+    updated = tracker.db.table("mail_agent_campaigns").select("*").eq("id", campaign_id).limit(1).execute()
+    return updated.data[0]
+
+
+@router.delete("/campaigns/{campaign_id}")
+def delete_campaign(
+    campaign_id: str,
+    tracker: MailTrackerService = Depends(get_mail_tracker),
+):
+    """Delete a campaign (does not delete linked emails)."""
+    tracker.db.table("mail_agent_campaigns").delete().eq("id", campaign_id).execute()
+    return {"message": "Campaign deleted"}
+
+
+@router.post("/campaigns/{campaign_id}/assign")
+def assign_to_campaign(
+    campaign_id: str,
+    req: CampaignAssignRequest,
+    tracker: MailTrackerService = Depends(get_mail_tracker),
+):
+    """Assign tracker emails to a campaign."""
+    # Verify campaign exists
+    existing = tracker.db.table("mail_agent_campaigns").select("id").eq("id", campaign_id).limit(1).execute()
+    if not existing.data:
+        raise HTTPException(404, "Campaign not found")
+
+    if req.tracker_ids:
+        tracker.db.table(tracker.table).update({"campaign_id": campaign_id}).in_("id", req.tracker_ids).execute()
+
+    return {"message": f"Assigned {len(req.tracker_ids)} emails to campaign", "campaign_id": campaign_id}
+
+
+# ── Lead Notes ──────────────────────────────────────────────────────────────
+
+
+@router.get("/leads/{lead_id}/notes", response_model=list)
+def list_lead_notes(
+    lead_id: str,
+    tracker: MailTrackerService = Depends(get_mail_tracker),
+):
+    """List all notes for a lead."""
+    resp = tracker.db.table("lead_notes").select("*").eq("lead_id", lead_id).order("created_at", desc=True).execute()
+    return resp.data or []
+
+
+@router.post("/leads/{lead_id}/notes", response_model=dict)
+def create_lead_note(
+    lead_id: str,
+    req: LeadNoteCreate,
+    tracker: MailTrackerService = Depends(get_mail_tracker),
+):
+    """Add a note to a lead."""
+    import uuid
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    record = {
+        "id": str(uuid.uuid4()),
+        "lead_id": lead_id,
+        "note_text": req.note_text,
+        "note_type": req.note_type,
+        "created_by": "user",
+        "created_at": now,
+        "updated_at": now,
+    }
+    tracker.db.table("lead_notes").insert(record).execute()
+    return record
+
+
+@router.delete("/leads/{lead_id}/notes/{note_id}")
+def delete_lead_note(
+    lead_id: str,
+    note_id: str,
+    tracker: MailTrackerService = Depends(get_mail_tracker),
+):
+    """Delete a lead note."""
+    tracker.db.table("lead_notes").delete().eq("id", note_id).eq("lead_id", lead_id).execute()
+    return {"message": "Note deleted"}
+
+
+@router.get("/leads/{lead_id}/activity")
+def get_lead_activity(
+    lead_id: str,
+    ingestion: LeadIngestionService = Depends(get_lead_ingestion),
+    tracker: MailTrackerService = Depends(get_mail_tracker),
+):
+    """Get full activity timeline for a lead — emails, notes, compliance events."""
+    lead = ingestion.fetch_lead_by_id(lead_id)
+    if not lead:
+        raise HTTPException(404, "Lead not found")
+
+    lead_email = lead.get("email") or lead.get("Email") or ""
+    lead_name = lead.get("name") or lead.get("company") or ""
+
+    activity = []
+
+    # Tracker emails related to this lead
+    if lead_email:
+        q = tracker.db.table(tracker.table).select("*").eq("email", lead_email).order("created_at", desc=True).limit(20)
+        for r in (q.execute().data or []):
+            activity.append({
+                "activity_type": "tracker",
+                "timestamp": r.get("created_at", ""),
+                "description": f"Email {r.get('status', 'PENDING').lower()}: {r.get('email_subject', '(no subject)')}",
+                "details": {"status": r.get("status"), "subject": r.get("email_subject", ""), "tracker_id": r.get("id")},
+            })
+
+    # Lead notes
+    notes_resp = tracker.db.table("lead_notes").select("*").eq("lead_id", lead_id).order("created_at", desc=True).limit(20)
+    for n in (notes_resp.execute().data or []):
+        activity.append({
+            "activity_type": "note",
+            "timestamp": n.get("created_at", ""),
+            "description": f"{n.get('note_type', 'general').title()} note: {n.get('note_text', '')[:100]}",
+            "details": {"note_id": n.get("id"), "note_type": n.get("note_type"), "text": n.get("note_text", "")},
+        })
+
+    # Compliance events
+    if lead_email:
+        comp_resp = tracker.db.table("mail_agent_compliance").select("*").eq("email", lead_email).order("created_at", desc=True).limit(10)
+        for c in (comp_resp.execute().data or []):
+            activity.append({
+                "activity_type": "compliance",
+                "timestamp": c.get("created_at", ""),
+                "description": f"Compliance event: {c.get('event_type', 'unknown')}",
+                "details": {"event_type": c.get("event_type"), "source": c.get("source", "")},
+            })
+
+    activity.sort(key=lambda x: x["timestamp"], reverse=True)
+    return activity
+
+
+# ── Lead Scoring ─────────────────────────────────────────────────────────────
+
+
+@router.get("/leads/{lead_id}/score", response_model=LeadScore)
+def get_lead_score(
+    lead_id: str,
+    tracker: MailTrackerService = Depends(get_mail_tracker),
+):
+    """Get the latest AI score for a specific lead."""
+    resp = (
+        tracker.db.table("lead_scores")
+        .select("*")
+        .eq("lead_id", lead_id)
+        .order("scored_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    rows = resp.data or []
+    if not rows:
+        raise HTTPException(404, "No score available for this lead")
+    return LeadScore(**rows[0])
+
+
+@router.get("/leads/scores", response_model=LeadScoreResponse)
+def get_lead_scores(
+    tracker: MailTrackerService = Depends(get_mail_tracker),
+):
+    """Get latest scores for all scored leads."""
+    resp = tracker.db.table("lead_scores").select("*").order("scored_at", desc=True).execute()
+    rows = resp.data or []
+    # Keep only the latest score per lead
+    seen = set()
+    unique = []
+    for r in rows:
+        lid = r.get("lead_id")
+        if lid not in seen:
+            seen.add(lid)
+            unique.append(LeadScore(**r))
+    return LeadScoreResponse(scores=unique, message=f"{len(unique)} leads scored")
+
+
+@router.post("/leads/score", response_model=LeadScoreResponse)
+async def score_leads(
+    req: LeadScoreRequest,
+    ingestion: LeadIngestionService = Depends(get_lead_ingestion),
+    email_gen: EmailGeneratorService = Depends(get_email_generator),
+    tracker: MailTrackerService = Depends(get_mail_tracker),
+):
+    """Score leads using AI prioritization. If no lead_ids provided, scores all unscored leads."""
+    import datetime as dt
+
+    # Determine which leads to score
+    if req.lead_ids:
+        raw = []
+        for lid in req.lead_ids:
+            lead = ingestion.fetch_lead_by_id(lid)
+            if lead:
+                raw.append(lead)
+    else:
+        raw = ingestion.fetch_pending_leads(limit=200, offset=0)
+
+    if not raw:
+        return LeadScoreResponse(scores=[], message="No leads to score")
+
+    results = []
+    now = dt.datetime.now(dt.timezone.utc).isoformat()
+
+    for lead in raw:
+        lead_id = lead.get("id")
+        if not lead_id:
+            continue
+
+        company_name = lead.get("name") or lead.get("company") or "Unknown"
+        context = lead.get("context") or lead.get("Context") or ""
+
+        # Score via LLM
+        score = email_gen.prioritize(company_name, context)
+
+        # Store score
+        score_record = {
+            "lead_id": lead_id,
+            "company_name": company_name,
+            "score": round(score * 100, 1),  # 0-100 scale
+            "reasoning": f"AI-scored {score:.2f} based on context analysis",
+            "scored_at": now,
+        }
+
+        # Upsert: delete old score then insert new one
+        tracker.db.table("lead_scores").delete().eq("lead_id", lead_id).execute()
+        tracker.db.table("lead_scores").insert(score_record).execute()
+
+        results.append(LeadScore(**score_record))
+
+    return LeadScoreResponse(
+        scores=results,
+        message=f"Scored {len(results)} leads",
+    )

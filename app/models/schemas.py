@@ -262,3 +262,87 @@ class WarmupResponse(BaseModel):
     history: list[WarmupDay] = []
     reputation: str = "healthy"
     recommended_daily: int = 80
+
+
+# ── Campaign Management ──────────────────────────────────────────────────────
+
+class CampaignCreate(BaseModel):
+    name: str
+    description: str = ""
+    target_audience: str = ""
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+class CampaignUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    target_audience: str | None = None
+    status: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+class CampaignResponse(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    status: str = "ACTIVE"
+    target_audience: str = ""
+    total_leads: int = 0
+    sent_count: int = 0
+    reply_count: int = 0
+    bounce_count: int = 0
+    start_date: str | None = None
+    end_date: str | None = None
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class CampaignAssignRequest(BaseModel):
+    lead_ids: list[str] = []
+    tracker_ids: list[str] = []
+
+
+# ── Lead Notes ──────────────────────────────────────────────────────────────
+
+class LeadNoteCreate(BaseModel):
+    lead_id: str
+    note_text: str
+    note_type: str = "general"
+
+
+class LeadNoteResponse(BaseModel):
+    id: str
+    lead_id: str
+    note_text: str
+    note_type: str = "general"
+    created_by: str = "user"
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class LeadActivityItem(BaseModel):
+    activity_type: str  # tracker | note | compliance
+    timestamp: str = ""
+    description: str = ""
+    details: dict | None = None
+
+
+# ── Lead Scoring ─────────────────────────────────────────────────────────────
+
+class LeadScoreRequest(BaseModel):
+    lead_ids: list[str] = []
+
+
+class LeadScore(BaseModel):
+    lead_id: str
+    company_name: str = ""
+    score: float = 0.0
+    reasoning: str = ""
+    scored_at: str = ""
+
+
+class LeadScoreResponse(BaseModel):
+    scores: list[LeadScore]
+    message: str = ""

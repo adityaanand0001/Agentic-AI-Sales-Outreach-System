@@ -174,3 +174,47 @@ export const compliance = {
 export const warmup = {
   get: () => fetchJson<any>(`${API_BASE}/mail-agent/warmup`),
 };
+
+// ── Campaigns ─────────────────────────────────────────────────────────
+
+export const campaigns = {
+  list: (status?: string) => {
+    let url = `${API_BASE}/mail-agent/campaigns`;
+    if (status) url += `?status=${encodeURIComponent(status)}`;
+    return fetchJson<any[]>(url);
+  },
+  get: (id: string) => fetchJson<any>(`${API_BASE}/mail-agent/campaigns/${id}`),
+  create: (data: { name: string; description?: string; target_audience?: string; start_date?: string; end_date?: string }) =>
+    fetchJson<any>(`${API_BASE}/mail-agent/campaigns`, { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: { name?: string; description?: string; status?: string; target_audience?: string }) =>
+    fetchJson<any>(`${API_BASE}/mail-agent/campaigns/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: string) =>
+    fetchJson<any>(`${API_BASE}/mail-agent/campaigns/${id}`, { method: 'DELETE' }),
+  assign: (id: string, data: { lead_ids?: string[]; tracker_ids?: string[] }) =>
+    fetchJson<any>(`${API_BASE}/mail-agent/campaigns/${id}/assign`, { method: 'POST', body: JSON.stringify(data) }),
+};
+
+// ── Lead Scoring ────────────────────────────────────────────────────────
+
+export const scores = {
+  list: () =>
+    fetchJson<{ scores: any[]; message: string }>(`${API_BASE}/mail-agent/leads/scores`),
+  get: (leadId: string) =>
+    fetchJson<{ lead_id: string; score: number; reasoning: string; scored_at: string }>(`${API_BASE}/mail-agent/leads/${leadId}/score`),
+  score: (lead_ids: string[]) =>
+    fetchJson<{ scores: any[]; message: string }>(`${API_BASE}/mail-agent/leads/score`, {
+      method: 'POST',
+      body: JSON.stringify({ lead_ids }),
+    }),
+};
+
+export const notes = {
+  list: (leadId: string) =>
+    fetchJson<any[]>(`${API_BASE}/mail-agent/leads/${leadId}/notes`),
+  create: (leadId: string, data: { note_text: string; note_type?: string }) =>
+    fetchJson<any>(`${API_BASE}/mail-agent/leads/${leadId}/notes`, { method: 'POST', body: JSON.stringify(data) }),
+  delete: (leadId: string, noteId: string) =>
+    fetchJson<any>(`${API_BASE}/mail-agent/leads/${leadId}/notes/${noteId}`, { method: 'DELETE' }),
+  activity: (leadId: string) =>
+    fetchJson<any[]>(`${API_BASE}/mail-agent/leads/${leadId}/activity`),
+};

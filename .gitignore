@@ -34,5 +34,8 @@ lancedb/
 # Zip
 *.zip
 
+# Agent workspace (not tracked)
+Adi/
+
 # Scratch
 scratch/
