@@ -513,6 +513,54 @@ class CompletionNode:
         # Simplified for now
         pass
 
+class ResearchNode:
+    """Node to run deep research on a lead before email generation."""
+
+    def __init__(self, email_gen: EmailGeneratorService, db: Client):
+        self.email_gen = email_gen
+        self.db = db
+
+    async def __call__(self, state: AgentState) -> AgentState:
+        """Run deep research pipeline and enrich state context."""
+        logger.info("Running deep research for lead")
+        from app.services.deep_research.engine import research_single_lead
+        from app.services.deep_research.schemas import LeadInput
+
+        company_name = state.get("company_name", "")
+
+        if not company_name:
+            return {**state, "processing_stage": "RESEARCHED"}
+
+        try:
+            lead = LeadInput(
+                name=company_name,
+                sector=state.get("context", "")[:80],
+                size="",
+            )
+
+            brief = await research_single_lead(lead)
+
+            research_context = ""
+            if brief.profile:
+                research_context += f"Company Profile: {brief.profile}\n"
+            if brief.why_now:
+                research_context += f"Why Now: {'; '.join(brief.why_now)}\n"
+            if brief.pain_points:
+                research_context += f"Pain Points: {'; '.join(brief.pain_points)}\n"
+            if brief.hooks:
+                research_context += f"Hooks: {'; '.join(h.hook for h in brief.hooks)}\n"
+
+            existing_context = state.get("context") or ""
+            return {
+                **state,
+                "processing_stage": "RESEARCHED",
+                "context": existing_context + "\n\nRESEARCH BRIEF:\n" + research_context,
+            }
+        except Exception as e:
+            logger.error(f"Deep research failed for {company_name}: {e}")
+            return {**state, "processing_stage": "RESEARCHED"}
+
+
 # ── Workflow Builder ──────────────────────────────────────────────────────────
 
 def build_mailing_workflow(
@@ -521,6 +569,7 @@ def build_mailing_workflow(
     email_gen: EmailGeneratorService,
     tracker: MailTrackerService,
     gmail: GmailOAuthService,
+    enable_research: bool = True,
 ) -> StateGraph:
     """Build and return the LangGraph workflow."""
 
@@ -538,6 +587,11 @@ def build_mailing_workflow(
     # Add nodes
     workflow.add_node("discover", discover_node)
     workflow.add_node("prioritize", prioritize_node)
+
+    if enable_research:
+        research_node = ResearchNode(email_gen, db)
+        workflow.add_node("research", research_node)
+
     workflow.add_node("generate", generate_node)
     workflow.add_node("quality_check", quality_node)
     workflow.add_node("decision", decision_node)
@@ -546,7 +600,13 @@ def build_mailing_workflow(
     # Define edges
     workflow.add_edge(START, "discover")
     workflow.add_edge("discover", "prioritize")
-    workflow.add_edge("prioritize", "generate")
+
+    if enable_research:
+        workflow.add_edge("prioritize", "research")
+        workflow.add_edge("research", "generate")
+    else:
+        workflow.add_edge("prioritize", "generate")
+
     workflow.add_edge("generate", "quality_check")
     workflow.add_edge("quality_check", "decision")
     workflow.add_edge("decision", "complete")

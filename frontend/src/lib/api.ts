@@ -208,6 +208,37 @@ export const scores = {
     }),
 };
 
+// ── Deep Research ──────────────────────────────────────────────────────
+
+export const research = {
+  uploadCsv: async (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${API_BASE}/research/upload-csv`, { method: 'POST', body: form });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({ detail: 'Upload failed' }))).detail);
+    return res.json() as Promise<{ batch_id: string; total_leads: number; message: string }>;
+  },
+  single: (name: string, sector = '', size = '', lead_id = '') =>
+    fetchJson<any>(`${API_BASE}/research/single`, {
+      method: 'POST',
+      body: JSON.stringify({ name, sector, size, lead_id }),
+    }),
+  batchProgress: (batchId: string) =>
+    fetchJson<any>(`${API_BASE}/research/batch/${batchId}`),
+  listBatches: () =>
+    fetchJson<any[]>(`${API_BASE}/research/batches`),
+  brief: (leadId: string) =>
+    fetchJson<any>(`${API_BASE}/research/brief/${leadId}`),
+  briefs: (confidenceMin = 0, limit = 50) =>
+    fetchJson<any[]>(`${API_BASE}/research/briefs?confidence_min=${confidenceMin}&limit=${limit}`),
+  briefByEmail: (email: string) =>
+    fetchJson<any>(`${API_BASE}/research/brief/by-email/${encodeURIComponent(email)}`),
+  config: () =>
+    fetchJson<any>(`${API_BASE}/research/config`),
+  health: () =>
+    fetchJson<any>(`${API_BASE}/research/health`),
+};
+
 export const notes = {
   list: (leadId: string) =>
     fetchJson<any[]>(`${API_BASE}/mail-agent/leads/${leadId}/notes`),

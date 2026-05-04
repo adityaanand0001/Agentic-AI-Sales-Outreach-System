@@ -42,7 +42,13 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     google_api_key: str = ""
     llm_provider: str = "gemini"  # "openai" or "gemini"
-    llm_model: str = "gemini-1.5-flash"
+    llm_model: str = "gemini-2.5-flash"
+
+    # ── Deep Research ────────────────────────────────────────────────────────────
+    research_enabled: bool = True
+    research_concurrency: int = 10
+    research_cache_ttl_days: int = 7
+    research_browser_deep_dive: bool = False  # enable for high-value leads
 
     # ── LangGraph ───────────────────────────────────────────────────────────────
     langgraph_workflow_version: str = "1.0.0"
