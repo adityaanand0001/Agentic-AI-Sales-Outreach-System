@@ -346,3 +346,48 @@ class LeadScore(BaseModel):
 class LeadScoreResponse(BaseModel):
     scores: list[LeadScore]
     message: str = ""
+
+
+# ── Follow-up / Re-engagement Engine ─────────────────────────────────────
+
+class FollowUpRuleCreate(BaseModel):
+    name: str
+    delay_days: int = 3
+    max_follow_ups: int = 3
+    is_active: bool = True
+
+
+class FollowUpRuleUpdate(BaseModel):
+    name: str | None = None
+    delay_days: int | None = None
+    max_follow_ups: int | None = None
+    is_active: bool | None = None
+
+
+class FollowUpRuleResponse(BaseModel):
+    id: str
+    name: str
+    delay_days: int = 3
+    max_follow_ups: int = 3
+    is_active: bool = True
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class FollowUpInstance(BaseModel):
+    id: str
+    rule_id: str
+    tracker_id: str
+    company_name: str = ""
+    email: str = ""
+    original_subject: str = ""
+    original_sent_at: str = ""
+    follow_up_number: int = 1
+    scheduled_at: str = ""
+    status: str = "PENDING"  # PENDING | APPROVED | SENT | SKIPPED | FAILED
+    email_subject: str = ""
+    email_body_preview: str = ""
+    gmail_message_id: str = ""
+    error: str = ""
+    created_at: str = ""
+    updated_at: str = ""

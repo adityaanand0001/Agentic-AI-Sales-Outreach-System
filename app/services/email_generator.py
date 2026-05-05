@@ -204,6 +204,49 @@ Follow the same rules: concise, professional, and reference the company's contex
         else:
             return self._generate_gemini(prompt)
 
+    def follow_up(
+        self,
+        company_name: str,
+        context: str,
+        recipient_email: str,
+        previous_subject: str = "",
+        follow_up_number: int = 1,
+    ) -> dict:
+        """
+        Generate a follow-up email for a lead that hasn't replied yet.
+
+        The prompt references the previous outreach to maintain thread continuity
+        and escalates urgency naturally with each follow-up number.
+        """
+        urgency_hooks = {
+            1: "a gentle, friendly nudge — assume they were busy",
+            2: "a slightly more direct follow-up — reference the previous email and add a new angle",
+            3: "a final re-engagement attempt — acknowledge it may not be the right time, leave the door open",
+        }
+        tone = urgency_hooks.get(follow_up_number, urgency_hooks[3])
+
+        prompt = f"""
+This is follow-up #{follow_up_number} for {company_name}.
+
+Previous Email Subject: {previous_subject}
+
+Company: {company_name}
+Context: {context}
+
+TONE: {tone}
+
+Write a concise follow-up email from Klyro to {company_name}.
+- Reference the previous outreach naturally (don't just repeat it)
+- Add a new value proposition or angle
+- Keep it under 120 words
+- End with a soft call to action
+"""
+
+        if self.settings.llm_provider == "openai":
+            return self._generate_openai(prompt)
+        else:
+            return self._generate_gemini(prompt)
+
     @staticmethod
     def _build_prompt(company_name: str, context: str) -> str:
         return f"""

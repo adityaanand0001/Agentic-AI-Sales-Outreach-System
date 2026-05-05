@@ -159,3 +159,54 @@ ALTER TABLE lead_scores ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can manage lead scores"
   ON lead_scores FOR ALL
   USING (auth.role() = 'authenticated');
+
+-- ---------------------------------
+-- 7. Follow-up / Re-engagement Engine
+-- ---------------------------------
+
+-- Follow-up rules define the schedule and limits
+CREATE TABLE IF NOT EXISTS mail_agent_follow_up_rules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  delay_days INT NOT NULL DEFAULT 3,
+  max_follow_ups INT NOT NULL DEFAULT 3,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_follow_up_rules_active ON mail_agent_follow_up_rules(is_active);
+
+ALTER TABLE mail_agent_follow_up_rules ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users can manage follow-up rules"
+  ON mail_agent_follow_up_rules FOR ALL
+  USING (auth.role() = 'authenticated');
+
+-- Follow-up instances track each generated follow-up email
+CREATE TABLE IF NOT EXISTS mail_agent_follow_ups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  rule_id UUID REFERENCES mail_agent_follow_up_rules(id) ON DELETE SET NULL,
+  tracker_id TEXT NOT NULL,
+  company_name TEXT DEFAULT '',
+  email TEXT DEFAULT '',
+  original_subject TEXT DEFAULT '',
+  original_sent_at TIMESTAMPTZ,
+  follow_up_number INT NOT NULL DEFAULT 1,
+  scheduled_at TIMESTAMPTZ,
+  status TEXT DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'SENT', 'SKIPPED', 'FAILED')),
+  email_subject TEXT DEFAULT '',
+  email_body_preview TEXT DEFAULT '',
+  gmail_message_id TEXT DEFAULT '',
+  error TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_follow_ups_status ON mail_agent_follow_ups(status);
+CREATE INDEX IF NOT EXISTS idx_follow_ups_tracker ON mail_agent_follow_ups(tracker_id);
+CREATE INDEX IF NOT EXISTS idx_follow_ups_scheduled ON mail_agent_follow_ups(scheduled_at);
+
+ALTER TABLE mail_agent_follow_ups ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users can manage follow-ups"
+  ON mail_agent_follow_ups FOR ALL
+  USING (auth.role() = 'authenticated');
