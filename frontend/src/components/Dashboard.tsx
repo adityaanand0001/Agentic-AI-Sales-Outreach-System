@@ -16,6 +16,7 @@ import ExecutionView from '@/components/views/ExecutionView';
 import LeadsView from '@/components/views/LeadsView';
 import CampaignsView from '@/components/views/CampaignsView';
 import ResearchView from '@/components/views/ResearchView';
+import FollowUpsView from '@/components/views/FollowUpsView';
 
 type Tab = keyof typeof tabTitles;
 
@@ -24,7 +25,7 @@ const tabTitles = {
   batches: 'Batch History', logs: 'System Execution Logs', performance: 'Performance Analytics',
   settings: 'Agent Configuration', templates: 'Email Templates', compliance: 'Compliance Tracker',
   warmup: 'Warmup Dashboard', execution: 'Agent Execution Engine', leads: 'Lead Management',
-  campaigns: 'Campaigns', research: 'Deep Research',
+  campaigns: 'Campaigns', research: 'Deep Research', followups: 'Follow-up Engine',
 } as const;
 
 const sidebarItems: { id: Tab; label: string }[] = [
@@ -35,6 +36,7 @@ const sidebarItems: { id: Tab; label: string }[] = [
   { id: 'compliance', label: 'Compliance' }, { id: 'warmup', label: 'Warmup' },
   { id: 'execution', label: 'Agent Execution' }, { id: 'leads', label: 'Lead Management' },
   { id: 'campaigns', label: 'Campaigns' }, { id: 'research', label: 'Research' },
+  { id: 'followups', label: 'Follow-ups' },
 ];
 
 function NavIcon({ id }: { id: string }) {
@@ -52,6 +54,7 @@ function NavIcon({ id }: { id: string }) {
     warmup: <><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></>,
     campaigns: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
     research: <><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></>,
+    followups: <><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></>,
   };
   return <svg {...s}>{map[id] || map.dashboard}</svg>;
 }
@@ -134,6 +137,7 @@ export default function Dashboard() {
         {activeTab === 'leads' && <LeadV toast={toast} />}
         {activeTab === 'campaigns' && <CampnV toast={toast} />}
         {activeTab === 'research' && <RsrchV toast={toast} />}
+        {activeTab === 'followups' && <FupV toast={toast} />}
       </div>
 
       {toasts.map(t => <div key={t.id} className="toast show"><span>{t.msg}</span></div>)}
@@ -293,6 +297,10 @@ function CampnV({ toast }: { toast: (s: string) => void }) {
 
 function RsrchV({ toast }: { toast: (s: string) => void }) {
   return <ResearchView toast={toast} />;
+}
+
+function FupV({ toast }: { toast: (s: string) => void }) {
+  return <FollowUpsView toast={toast} />;
 }
 
 function ExecV({ toast, onClose }: { toast: (s: string) => void; onClose: () => void }) {

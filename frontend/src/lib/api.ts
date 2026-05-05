@@ -239,6 +239,43 @@ export const research = {
     fetchJson<any>(`${API_BASE}/research/health`),
 };
 
+// ── Follow-ups ─────────────────────────────────────────────────────────
+
+export const followUps = {
+  rules: {
+    list: () =>
+      fetchJson<any[]>(`${API_BASE}/follow-ups/rules`),
+    get: (id: string) =>
+      fetchJson<any>(`${API_BASE}/follow-ups/rules/${id}`),
+    create: (data: { name: string; delay_days?: number; max_follow_ups?: number; is_active?: boolean }) =>
+      fetchJson<any>(`${API_BASE}/follow-ups/rules`, { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: { name?: string; delay_days?: number; max_follow_ups?: number; is_active?: boolean }) =>
+      fetchJson<any>(`${API_BASE}/follow-ups/rules/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id: string) =>
+      fetchJson<any>(`${API_BASE}/follow-ups/rules/${id}`, { method: 'DELETE' }),
+  },
+  pending: (limit = 100, offset = 0) =>
+    fetchJson<any[]>(`${API_BASE}/follow-ups/pending?limit=${limit}&offset=${offset}`),
+  list: (status?: string, limit = 100, offset = 0) => {
+    let url = `${API_BASE}/follow-ups/list?limit=${limit}&offset=${offset}`;
+    if (status) url += `&status=${status}`;
+    return fetchJson<any[]>(url);
+  },
+  get: (id: string) =>
+    fetchJson<any>(`${API_BASE}/follow-ups/${id}`),
+  generate: (ruleId?: string, dryRun = false) => {
+    let url = `${API_BASE}/follow-ups/generate?dry_run=${dryRun}`;
+    if (ruleId) url += `&rule_id=${ruleId}`;
+    return fetchJson<any>(url, { method: 'POST' });
+  },
+  approve: (id: string) =>
+    fetchJson<any>(`${API_BASE}/follow-ups/${id}/approve`, { method: 'POST' }),
+  skip: (id: string) =>
+    fetchJson<any>(`${API_BASE}/follow-ups/${id}/skip`, { method: 'POST' }),
+  summary: () =>
+    fetchJson<{ total: number; pending: number; sent: number; skipped: number; failed: number; active_rules: number }>(`${API_BASE}/follow-ups/summary`),
+};
+
 export const notes = {
   list: (leadId: string) =>
     fetchJson<any[]>(`${API_BASE}/mail-agent/leads/${leadId}/notes`),
