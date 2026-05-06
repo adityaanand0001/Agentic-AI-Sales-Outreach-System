@@ -276,6 +276,29 @@ export const followUps = {
     fetchJson<{ total: number; pending: number; sent: number; skipped: number; failed: number; active_rules: number }>(`${API_BASE}/follow-ups/summary`),
 };
 
+// ── Scheduling ─────────────────────────────────────────────────
+
+export const scheduling = {
+  schedule: (tracker_id: string, scheduled_at: string) =>
+    fetchJson<any>(`${API_BASE}/scheduling/schedule`, {
+      method: 'POST',
+      body: JSON.stringify({ tracker_id, scheduled_at }),
+    }),
+  list: (status?: string, limit = 100, offset = 0) => {
+    let url = `${API_BASE}/scheduling/list?limit=${limit}&offset=${offset}`;
+    if (status) url += `&status=${status}`;
+    return fetchJson<any[]>(url);
+  },
+  get: (id: string) =>
+    fetchJson<any>(`${API_BASE}/scheduling/${id}`),
+  cancel: (id: string) =>
+    fetchJson<any>(`${API_BASE}/scheduling/${id}`, { method: 'DELETE' }),
+  processDue: () =>
+    fetchJson<{ processed: number; results: any[] }>(`${API_BASE}/scheduling/process-due`, { method: 'POST' }),
+  summary: () =>
+    fetchJson<{ total: number; pending: number; sent: number; cancelled: number; failed: number }>(`${API_BASE}/scheduling/summary`),
+};
+
 export const notes = {
   list: (leadId: string) =>
     fetchJson<any[]>(`${API_BASE}/mail-agent/leads/${leadId}/notes`),

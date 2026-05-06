@@ -364,6 +364,40 @@ class FollowUpRuleUpdate(BaseModel):
     is_active: bool | None = None
 
 
+# ── Send Scheduling ──────────────────────────────────────────────
+
+class ScheduleCreate(BaseModel):
+    tracker_id: str
+    scheduled_at: str  # ISO 8601 datetime
+
+
+class ScheduleApproveRequest(BaseModel):
+    tracker_id: str
+    scheduled_at: str  # ISO 8601 datetime
+
+
+class ScheduleItem(BaseModel):
+    id: str
+    tracker_id: str
+    company_name: str = ""
+    email: str = ""
+    email_subject: str = ""
+    email_body_preview: str = ""
+    scheduled_at: str = ""
+    status: str = "PENDING"  # PENDING | PROCESSING | SENT | CANCELLED | FAILED
+    error: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class ScheduleSummary(BaseModel):
+    total: int = 0
+    pending: int = 0
+    sent: int = 0
+    cancelled: int = 0
+    failed: int = 0
+
+
 class FollowUpRuleResponse(BaseModel):
     id: str
     name: str

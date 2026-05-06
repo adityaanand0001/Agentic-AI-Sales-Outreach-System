@@ -210,3 +210,30 @@ ALTER TABLE mail_agent_follow_ups ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can manage follow-ups"
   ON mail_agent_follow_ups FOR ALL
   USING (auth.role() = 'authenticated');
+
+-- ---------------------------------
+-- 8. Send Schedule Queue
+-- ---------------------------------
+-- Allows users to schedule emails for future delivery
+CREATE TABLE IF NOT EXISTS mail_agent_schedule_queue (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tracker_id TEXT NOT NULL,
+  company_name TEXT DEFAULT '',
+  email TEXT DEFAULT '',
+  email_subject TEXT DEFAULT '',
+  email_body_preview TEXT DEFAULT '',
+  scheduled_at TIMESTAMPTZ NOT NULL,
+  status TEXT DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'PROCESSING', 'SENT', 'CANCELLED', 'FAILED')),
+  error TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_schedule_queue_status ON mail_agent_schedule_queue(status);
+CREATE INDEX IF NOT EXISTS idx_schedule_queue_scheduled ON mail_agent_schedule_queue(scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_schedule_queue_tracker ON mail_agent_schedule_queue(tracker_id);
+
+ALTER TABLE mail_agent_schedule_queue ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users can manage schedule queue"
+  ON mail_agent_schedule_queue FOR ALL
+  USING (auth.role() = 'authenticated');
