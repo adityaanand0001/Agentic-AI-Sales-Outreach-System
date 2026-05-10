@@ -299,6 +299,27 @@ export const scheduling = {
     fetchJson<{ total: number; pending: number; sent: number; cancelled: number; failed: number }>(`${API_BASE}/scheduling/summary`),
 };
 
+// ── Analytics ────────────────────────────────────────────────────────
+
+export const analytics = {
+  report: (days = 30) =>
+    fetchJson<any>(`${API_BASE}/analytics/report?days=${days}`),
+  volume: (days = 30) =>
+    fetchJson<any[]>(`${API_BASE}/analytics/volume?days=${days}`),
+  statusBreakdown: () =>
+    fetchJson<Record<string, number>>(`${API_BASE}/analytics/status-breakdown`),
+  domains: () =>
+    fetchJson<any[]>(`${API_BASE}/analytics/domains`),
+  hourly: () =>
+    fetchJson<any[]>(`${API_BASE}/analytics/hourly`),
+  complianceBreakdown: () =>
+    fetchJson<Record<string, number>>(`${API_BASE}/analytics/compliance-breakdown`),
+  followUps: () =>
+    fetchJson<any>(`${API_BASE}/analytics/follow-ups`),
+  schedules: () =>
+    fetchJson<any>(`${API_BASE}/analytics/schedules`),
+};
+
 export const notes = {
   list: (leadId: string) =>
     fetchJson<any[]>(`${API_BASE}/mail-agent/leads/${leadId}/notes`),

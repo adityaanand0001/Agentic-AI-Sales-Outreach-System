@@ -14,6 +14,7 @@ from app.routes.langgraph_agent import router as langgraph_agent_router
 from app.routes.research import router as research_router
 from app.routes.follow_ups import router as follow_ups_router
 from app.routes.scheduling import router as scheduling_router
+from app.routes.analytics import router as analytics_router
 
 from app.config.settings import get_settings
 
@@ -79,6 +80,7 @@ app.include_router(langgraph_agent_router)
 app.include_router(research_router)
 app.include_router(follow_ups_router)
 app.include_router(scheduling_router)
+app.include_router(analytics_router)
 
 
 @app.get("/health")
